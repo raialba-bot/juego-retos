@@ -1,0 +1,166 @@
+
+    :root {
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      --border: #334155;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; padding: 1rem; display: flex; flex-direction: column; align-items: center; }
+    .container { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 1.5rem; }
+
+    /* Pantalla de Login */
+    #login-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: var(--bg); z-index: 1000; display: flex;
+      align-items: center; justify-content: center; padding: 1rem;
+    }
+    .login-card {
+      background: var(--card-bg); border: 1px solid var(--border);
+      border-radius: 1.5rem; padding: 2.5rem; width: 100%; max-width: 400px;
+      text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    .login-card input {
+      width: 100%; padding: 0.8rem; margin: 1.2rem 0;
+      border-radius: 0.75rem; border: 1px solid var(--border);
+      background: #0f172a; color: white; text-align: center; font-size: 1.1rem;
+    }
+
+    header { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 1rem 1.5rem; border-radius: 1rem; border: 1px solid var(--border); }
+    .status-badge { font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 1rem; font-weight: bold; background: #334155; }
+    .status-online { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
+
+    /* Visor Digital de Nombres */
+    .slot-display-container {
+      background: linear-gradient(180deg, #0b0f19 0%, #1e293b 100%);
+      border: 2px solid #475569;
+      border-radius: 1.5rem;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.05);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slot-name-box {
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .slot-name {
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: #38bdf8;
+      text-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
+      letter-spacing: 1px;
+      transition: transform 0.05s ease;
+    }
+
+    .slot-name.blur { filter: blur(2px); transform: scale(0.95); }
+
+    .deck-info {
+      font-size: 0.85rem;
+      color: #38bdf8;
+      margin-bottom: 0.5rem;
+    }
+
+    .challenge-box {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      font-size: 1.2rem;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #e2e8f0;
+      margin-top: 0.5rem;
+    }
+
+    /* Botones de Acción y Protocolo */
+    .action-panel {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.8rem 1.2rem;
+      border-radius: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-spin { font-size: 1.5rem; padding: 1.2rem; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); width: 100%; }
+    .btn-success { background: var(--accent-green); }
+    .btn-danger { background: var(--accent-red); }
+    .btn-amber { background: var(--accent-amber); }
+
+    /* Tabla de Alumnos */
+    .students-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .student-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .student-card-header { display: flex; justify-content: space-between; align-items: center; }
+    .student-score { font-weight: 800; font-size: 1.2rem; }
+    .score-pos { color: var(--accent-green); }
+    .score-neg { color: var(--accent-red); }
+    .antishame-tracker { font-size: 0.8rem; color: var(--text-muted); }
+
+    .status-error { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); border: 1px solid var(--accent-red); }
+    .manual-row { display: flex; gap: 0.4rem; }
+    .btn-mini { padding: 0.35rem 0.7rem; font-size: 0.85rem; border-radius: 0.5rem; }
+    .btn-ghost { background: #334155; margin-left: auto; }
+    .hist { font-size: 0.75rem; color: var(--text-muted); }
+    .hist summary { cursor: pointer; }
+    .hist ul { margin: 0.3rem 0 0 1.1rem; }
+
+    /* Modales */
+    .modal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 100;
+      align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal-content {
+      background: var(--card-bg); border: 1px solid var(--border); border-radius: 1rem;
+      padding: 2rem; width: 100%; max-width: 600px; max-height: 85vh; overflow-y: auto;
+    }
+  
+    .login-card button { width: 100%; }
+    .login-msg { color: var(--accent-red); font-size: 0.85rem; margin-top: 0.8rem; }
+    .student-card.absent { opacity: 0.45; }
+    .ausente { font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+    .shame-options { display: flex; flex-direction: column; gap: 0.6rem; margin: 1rem 0; }
+    .shame-options small { display: block; font-weight: 400; opacity: 0.85; }
+    textarea { width: 100%; min-height: 160px; background: #0f172a; color: white; border: 1px solid var(--border); border-radius: 0.75rem; padding: 0.7rem; }
