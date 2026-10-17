@@ -8,6 +8,7 @@ let spinning = false, firstSnap = false, audioCtx = null;
 const newStudent = name => ({ name, score: 0, antiShameUses: 0, absent: false, history: [] });
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nowLabel = () => new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+const signo = n => (n > 0 ? '+' + n : n < 0 ? '−' + Math.abs(n) : '0');
 const rand = arr => arr[Math.floor(Math.random() * arr.length)];
 
 const state = {
@@ -176,7 +177,7 @@ function startSpin() {
     spinning = false;
     btn.disabled = false;
     confetti({ particleCount: 50, spread: 50, origin: { y: 0.7 } });
-    if (reto.auto) applyResult(reto.pts, 'Recompensa', `🎁 ${name}: +${reto.pts} automático. ${reto.text}`);
+    if (reto.auto) applyResult(reto.pts, 'Recompensa', `🎁 ${name}: ${signo(reto.pts)} automático.` + (reto.claseOk ? ` Resto de la clase: ${signo(reto.claseOk)}.` : '') + ` ${reto.text}`, reto.claseOk || 0);
     else saveState();
   })();
 }
@@ -187,11 +188,21 @@ function addHistory(student, type, points, retoId) {
   student.history.unshift({ type, points, challenge: r ? r.text : '', date: nowLabel() });
 }
 
-function applyResult(points, type, message) {
+function applyResult(points, type, message, clase = 0) {
   const s = findStudent(state.currentStudentName);
   if (!s) return;
   s.score += points;
   addHistory(s, type, points, state.currentChallengeId);
+  if (clase) {
+    const r = RETO_POR_ID[state.currentChallengeId];
+    const titulo = r ? r.text.split(':')[0].trim() : 'Reto';
+    // Solo afecta al resto de alumnos presentes
+    state.students.forEach(o => {
+      if (o.absent || o.name === s.name) return;
+      o.score += clase;
+      addHistory(o, 'Clase: ' + titulo, clase, state.currentChallengeId);
+    });
+  }
   state.pending = false;
   state.message = message;
   saveState();
@@ -201,7 +212,9 @@ function recordResult(ok) {
   const r = RETO_POR_ID[state.currentChallengeId];
   if (!r || !state.pending) return;
   const pts = ok ? r.pts : -r.pen;
-  applyResult(pts, ok ? 'Cumplido' : 'No cumplido', `Resultado registrado: ${state.currentStudentName} (${pts > 0 ? '+' + pts : pts})`);
+  const clase = (ok ? r.claseOk : r.claseKo) || 0;
+  applyResult(pts, ok ? 'Cumplido' : 'No cumplido',
+    `Resultado registrado: ${state.currentStudentName} (${signo(pts)})` + (clase ? ` · resto de la clase (${signo(clase)})` : ''), clase);
 }
 
 // ---------- Protocolo Anti-Vergüenza ----------
@@ -220,7 +233,8 @@ function shame(op) {
   s.antiShameUses++;
   const original = state.currentChallengeId;
   if (op === 1) {
-    const r = rand(RETOS.filter(x => x.cat === 'pizarra' && x.id !== original));
+    const faciles = RETOS.filter(x => x.cat === 'pizarra' && x.facil && x.id !== original);
+    const r = rand(faciles.length ? faciles : RETOS.filter(x => x.cat === 'pizarra' && x.id !== original));
     state.currentChallengeId = r.id;
     addHistory(s, 'Anti-Vergüenza: rescate matemático', 0, original);
   } else if (op === 2) {
@@ -309,8 +323,9 @@ function renderCurrent() {
   slot.textContent = state.currentStudentName;
   if (state.pending && r) {
     box.textContent = r.text;
-    document.getElementById('btn-ok').textContent = `✅ Cumplido (+${r.pts})`;
-    document.getElementById('btn-ko').textContent = `❌ No Realizado (-${r.pen})`;
+    const extra = n => (n ? ` · clase ${signo(n)}` : '');
+    document.getElementById('btn-ok').textContent = `✅ Cumplido (${signo(r.pts)}${extra(r.claseOk)})`;
+    document.getElementById('btn-ko').textContent = `❌ No Realizado (${signo(-r.pen)}${extra(r.claseKo)})`;
     live.style.display = 'grid';
   } else {
     box.textContent = state.message || (r ? r.text : '');
