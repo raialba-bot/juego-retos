@@ -562,4 +562,21 @@ function exportarCSV(tipo) {
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
+// ---------- Copia completa (para migrar a la versión Hoja de cálculo) ----------
+async function exportarCopia() {
+  try {
+    const snap = await db.collection('clases').get();
+    const gr = {};
+    snap.forEach(d => { gr[d.id] = d.data(); });
+    let ajustes = { grupos };
+    try { const aj = await db.collection('ajustes').doc('general').get(); if (aj.exists) ajustes = aj.data(); } catch (e) {}
+    const copia = { version: 1, fecha: new Date().toISOString(), ajustes, grupos: gr };
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(copia)], { type: 'application/json' }));
+    link.download = `copia_juego_retos_${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  } catch (e) { alert('No se pudo exportar: ' + (e.code || e.message)); }
+}
+
 window.onload = initApp;
