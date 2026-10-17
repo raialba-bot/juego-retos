@@ -25,7 +25,7 @@
   <header>
     <div>
       <h1>🎲 El Juego de los Retos</h1>
-      <p style="font-size: 0.85rem; color: var(--text-muted);">4º ESO Matemáticas A</p>
+      <select id="grupo-select" onchange="cambiarGrupo(this.value)"></select>
     </div>
     <div style="display: flex; gap: 0.5rem; align-items: center;">
       <span id="cloud-status" class="status-badge">Conectando...</span>
@@ -40,6 +40,10 @@
     <div id="challenge-display" class="challenge-box"></div>
     <div style="margin-top: 1.5rem;">
       <button id="btn-spin" class="btn-spin" onclick="startSpin()">🚀 ¡GIRAR NOMBRES!</button>
+    </div>
+    <div id="timer-box" class="timer-box" style="display: none;">
+      <button id="btn-timer" class="btn-amber" onclick="toggleTimer()"></button>
+      <span id="timer-display" class="timer-display"></span>
     </div>
     <div id="live-controls" class="action-panel" style="display: none;">
       <button id="btn-ok" class="btn-success" onclick="recordResult(true)"></button>
@@ -73,6 +77,25 @@
     <textarea id="students-text"></textarea>
     <button onclick="saveStudentList()" style="width: 100%; margin-top: 0.6rem;">Guardar lista</button>
 
+    <div class="cfg-sec">
+      <h4>🗂️ Grupos</h4>
+      <div class="manual-row" style="margin-top: 0.5rem;">
+        <button class="btn-mini" onclick="nuevoGrupo()">➕ Nuevo</button>
+        <button class="btn-mini" onclick="renombrarGrupo()">✏️ Renombrar</button>
+        <button class="btn-mini btn-danger" onclick="eliminarGrupo()">🗑 Eliminar</button>
+      </div>
+    </div>
+    <div class="cfg-sec">
+      <h4>🧩 Retos</h4>
+      <button style="width: 100%; margin-top: 0.5rem;" onclick="closeModal('config-modal'); openRetos()">Abrir editor de retos</button>
+    </div>
+    <div class="cfg-sec">
+      <h4>📥 Exportar a Excel (CSV)</h4>
+      <div class="manual-row" style="margin-top: 0.5rem;">
+        <button class="btn-mini" onclick="exportarCSV('resumen')">Resumen</button>
+        <button class="btn-mini" onclick="exportarCSV('historial')">Historial</button>
+      </div>
+    </div>
     <div style="border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 1rem;">
       <h4 style="color: var(--accent-red); margin-bottom: 0.5rem;">⚠️ Zona de Peligro</h4>
       <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.8rem;">Reinicia puntos, usos del protocolo e historial de todos (se mantiene la lista).</p>
@@ -80,6 +103,21 @@
     </div>
     <button onclick="logout()" style="width: 100%; background: #334155; margin-top: 1rem;">Cerrar sesión</button>
     <button onclick="closeModal('config-modal')" style="width: 100%; background: #334155; margin-top: 0.5rem;">Cerrar</button>
+  </div>
+</div>
+
+<div id="retos-modal" class="modal">
+  <div class="modal-content ancho">
+    <h3>🧩 Editor de retos</h3>
+    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0.4rem 0 0.8rem;">Los cambios afectan a todos los grupos. <strong>+Pts</strong>: puntos si cumple · <strong>−Pen</strong>: puntos que resta si no cumple · <strong>Clase</strong>: puntos para el resto del grupo si cumple / no cumple. Si un reto indica un tiempo («30 segundos», «3 minutos»), saldrá con cuenta atrás.</p>
+    <div class="reto-row reto-head"><span>Texto</span><span>Tipo</span><span>+Pts</span><span>−Pen</span><span>Clase ✔</span><span>Clase ✘</span><span></span></div>
+    <div id="retos-list"></div>
+    <div class="manual-row" style="margin-top: 0.8rem;">
+      <button onclick="anadirReto()">➕ Añadir reto</button>
+      <button class="btn-ghost" onclick="restaurarRetos()">Restaurar originales</button>
+    </div>
+    <button onclick="guardarRetos()" style="width: 100%; margin-top: 0.8rem;">Guardar cambios</button>
+    <button onclick="closeModal('retos-modal')" style="width: 100%; background: #334155; margin-top: 0.5rem;">Cancelar</button>
   </div>
 </div>
 

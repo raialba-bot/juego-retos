@@ -1,6 +1,12 @@
-const LOCAL_KEY = 'juego_retos_state_v3';
+const localKey = () => 'juego_retos_state_v4_' + grupoId;
 const COLA_RETOS = 22;
-const RETO_POR_ID = Object.fromEntries(RETOS.map(r => [r.id, r]));
+let grupos = [{ id: '4ESO_A', nombre: '4º ESO A' }];
+let grupoId = localStorage.getItem('juego_retos_grupo') || '4ESO_A';
+let retos = RETOS.map(r => ({ ...r }));
+let RETO_POR_ID = {};
+const reindex = () => { RETO_POR_ID = Object.fromEntries(retos.map(r => [r.id, r])); };
+reindex();
+let timerId = null, timerLeft = 0;
 
 let db = null, auth = null, unsub = null;
 let spinning = false, firstSnap = false, audioCtx = null;
@@ -11,16 +17,12 @@ const nowLabel = () => new Date().toLocaleString('es-ES', { day: '2-digit', mont
 const signo = n => (n > 0 ? '+' + n : n < 0 ? '−' + Math.abs(n) : '0');
 const rand = arr => arr[Math.floor(Math.random() * arr.length)];
 
-const state = {
-  students: ALUMNOS.map(newStudent),
-  studentDeck: [...ALUMNOS],
-  blockedChallenges: [],
-  currentStudentName: null,
-  currentChallengeId: null,
-  pending: false,
-  message: '',
-  updatedAt: 0
-};
+function estadoInicial() {
+  const nombres = grupoId === '4ESO_A' ? ALUMNOS : [];
+  return { students: nombres.map(newStudent), studentDeck: [...nombres], blockedChallenges: [], currentStudentName: null,
+    currentChallengeId: null, pending: false, message: '', updatedAt: 0 };
+}
+const state = estadoInicial();
 
 const renombrar = n => (RENOMBRAR[n] || n);
 const presentes = () => state.students.filter(s => !s.absent).map(s => s.name);
@@ -88,12 +90,30 @@ function setCloudStatus(kind, detail) {
   }
 }
 
-function startData() {
-  try { const raw = localStorage.getItem(LOCAL_KEY); if (raw) applyData(JSON.parse(raw)); } catch (e) {}
+async function startData() {
+  try {
+    const doc = await db.collection('ajustes').doc('general').get();
+    if (doc.exists) {
+      const d = doc.data();
+      if (Array.isArray(d.grupos) && d.grupos.length) grupos = d.grupos;
+      if (Array.isArray(d.retos) && d.retos.length) retos = d.retos;
+    }
+  } catch (e) { console.warn('No se pudieron leer los ajustes (¿reglas sin actualizar?):', e); }
+  if (!grupos.some(g => g.id === grupoId)) grupoId = grupos[0].id;
+  reindex();
+  renderGrupos();
+  cargarGrupo();
+}
+
+function cargarGrupo() {
+  if (unsub) { unsub(); unsub = null; }
+  stopTimer();
+  Object.assign(state, estadoInicial());
+  try { const raw = localStorage.getItem(localKey()); if (raw) applyData(JSON.parse(raw)); } catch (e) {}
   firstSnap = false;
   renderAll();
   if (unsub) unsub();
-  const ref = db.collection('clases').doc('4ESO_A');
+  const ref = db.collection('clases').doc(grupoId);
   unsub = ref.onSnapshot(doc => {
     if (doc.metadata.hasPendingWrites || spinning) return;
     if (!doc.exists) { firstSnap = true; saveState(); return; }
@@ -101,7 +121,7 @@ function startData() {
     if (!firstSnap && state.updatedAt > (data.updatedAt || 0)) { firstSnap = true; saveState(); return; }
     firstSnap = true;
     applyData(data);
-    try { localStorage.setItem(LOCAL_KEY, JSON.stringify(serialize())); } catch (e) {}
+    try { localStorage.setItem(localKey(), JSON.stringify(serialize())); } catch (e) {}
     setCloudStatus('ok');
     renderAll();
   }, err => { console.error('Error leyendo Firestore:', err); setCloudStatus('error', err && err.code); });
@@ -109,11 +129,11 @@ function startData() {
 
 function saveState() {
   const data = serialize();
-  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); } catch (e) {}
+  try { localStorage.setItem(localKey(), JSON.stringify(data)); } catch (e) {}
   renderAll();
   if (!auth.currentUser) return;
   setCloudStatus('saving');
-  db.collection('clases').doc('4ESO_A').set(data)
+  db.collection('clases').doc(grupoId).set(data)
     .then(() => setCloudStatus('ok'))
     .catch(err => { console.error('Error guardando en Firestore:', err); setCloudStatus('error', err && err.code); });
 }
@@ -128,26 +148,27 @@ function getNextStudent() {
 }
 
 function getNextChallenge() {
-  let disp = RETOS.filter(r => !state.blockedChallenges.includes(r.id));
-  if (!disp.length) { state.blockedChallenges = []; disp = RETOS; }
+  let disp = retos.filter(r => !state.blockedChallenges.includes(r.id));
+  if (!disp.length) { state.blockedChallenges = []; disp = retos; }
   const r = rand(disp);
   state.blockedChallenges.push(r.id);
   if (state.blockedChallenges.length > COLA_RETOS) state.blockedChallenges.shift();
   return r;
 }
 
-function playTickSound() {
+function playTickSound(freq = 800, vol = 0.03, dur = 0.04) {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-  gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.04);
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
   osc.connect(gain); gain.connect(audioCtx.destination);
-  osc.start(); osc.stop(audioCtx.currentTime + 0.04);
+  osc.start(); osc.stop(audioCtx.currentTime + dur);
 }
 
 function startSpin() {
+  stopTimer();
   const name = getNextStudent();
   if (!name) { alert('No hay alumnos presentes.'); return; }
   const reto = getNextChallenge();
@@ -230,11 +251,12 @@ function shame(op) {
   const s = findStudent(state.currentStudentName);
   if (!s || !state.pending) return;
   closeModal('shame-modal');
+  stopTimer();
   s.antiShameUses++;
   const original = state.currentChallengeId;
   if (op === 1) {
-    const faciles = RETOS.filter(x => x.cat === 'pizarra' && x.facil && x.id !== original);
-    const r = rand(faciles.length ? faciles : RETOS.filter(x => x.cat === 'pizarra' && x.id !== original));
+    const faciles = retos.filter(x => x.cat === 'pizarra' && x.facil && x.id !== original);
+    const r = rand(faciles.length ? faciles : retos.filter(x => x.cat === 'pizarra' && x.id !== original));
     state.currentChallengeId = r.id;
     addHistory(s, 'Anti-Vergüenza: rescate matemático', 0, original);
   } else if (op === 2) {
@@ -314,6 +336,16 @@ function renderCurrent() {
   const box = document.getElementById('challenge-display');
   const live = document.getElementById('live-controls');
   const r = RETO_POR_ID[state.currentChallengeId];
+  const seg = state.pending && r ? tiempoReto(r.text) : 0;
+  const tb = document.getElementById('timer-box');
+  if (!seg) { stopTimer(); tb.style.display = 'none'; }
+  else {
+    tb.style.display = 'flex';
+    if (!timerId) {
+      document.getElementById('btn-timer').textContent = `⏱️ Cuenta atrás (${fmtT(seg)})`;
+      document.getElementById('timer-display').textContent = '';
+    }
+  }
   if (!state.currentStudentName) {
     slot.textContent = '¿Quién empieza?';
     box.textContent = 'Presiona el botón para seleccionar a un alumno y un reto al azar...';
@@ -367,5 +399,167 @@ function renderDeck() {
 function renderAll() { renderStudents(); renderDeck(); renderCurrent(); }
 function openModal(id) { document.getElementById(id).style.display = 'flex'; }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+// ---------- Cuenta atrás ----------
+function tiempoReto(text) {
+  const m = text.match(/(\d+)\s*(segundos?|minutos?)/i);
+  return m ? parseInt(m[1], 10) * (/^min/i.test(m[2]) ? 60 : 1) : 0;
+}
+const fmtT = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+function stopTimer() { if (timerId) clearInterval(timerId); timerId = null; }
+
+function toggleTimer() {
+  const r = RETO_POR_ID[state.currentChallengeId];
+  if (!r) return;
+  const total = tiempoReto(r.text);
+  const disp = document.getElementById('timer-display'), btn = document.getElementById('btn-timer');
+  if (timerId) { stopTimer(); disp.textContent = ''; btn.textContent = `⏱️ Cuenta atrás (${fmtT(total)})`; return; }
+  timerLeft = total;
+  disp.textContent = fmtT(timerLeft);
+  btn.textContent = '⏹ Parar';
+  timerId = setInterval(() => {
+    timerLeft--;
+    disp.textContent = fmtT(Math.max(timerLeft, 0));
+    if (timerLeft <= 0) {
+      stopTimer();
+      disp.textContent = '¡Tiempo!';
+      btn.textContent = '⏱️ Repetir';
+      [0, 300, 600].forEach(t => setTimeout(() => playTickSound(1000, 0.15, 0.25), t));
+    }
+  }, 1000);
+}
+
+// ---------- Grupos ----------
+function renderGrupos() {
+  document.getElementById('grupo-select').innerHTML = grupos.map(g =>
+    `<option value="${esc(g.id)}" ${g.id === grupoId ? 'selected' : ''}>${esc(g.nombre)}</option>`).join('');
+}
+
+function guardarAjustes() {
+  return db.collection('ajustes').doc('general').set({ grupos, retos })
+    .then(() => setCloudStatus('ok'))
+    .catch(err => { console.error('Error guardando ajustes:', err); setCloudStatus('error', err && err.code); });
+}
+
+function cambiarGrupo(id) {
+  grupoId = id;
+  localStorage.setItem('juego_retos_grupo', id);
+  renderGrupos();
+  cargarGrupo();
+}
+
+function nuevoGrupo() {
+  const nombre = (prompt('Nombre del nuevo grupo (por ejemplo, 3º ESO B):') || '').trim();
+  if (!nombre) return;
+  const id = 'g' + Date.now();
+  grupos.push({ id, nombre });
+  guardarAjustes();
+  closeModal('config-modal');
+  cambiarGrupo(id);
+}
+
+function renombrarGrupo() {
+  const g = grupos.find(x => x.id === grupoId);
+  const nombre = (prompt('Nuevo nombre del grupo:', g.nombre) || '').trim();
+  if (!nombre) return;
+  g.nombre = nombre;
+  guardarAjustes();
+  renderGrupos();
+}
+
+function eliminarGrupo() {
+  if (grupos.length < 2) { alert('Tiene que quedar al menos un grupo.'); return; }
+  const g = grupos.find(x => x.id === grupoId);
+  if (!confirm(`¿Eliminar el grupo «${g.nombre}» con todos sus puntos?`)) return;
+  grupos = grupos.filter(x => x.id !== g.id);
+  guardarAjustes();
+  closeModal('config-modal');
+  cambiarGrupo(grupos[0].id);          // primero se deja de escuchar el grupo viejo
+  db.collection('clases').doc(g.id).delete().catch(console.error);
+}
+
+// ---------- Editor de retos ----------
+function openRetos() { renderRetosEditor(); openModal('retos-modal'); }
+
+function renderRetosEditor() {
+  document.getElementById('retos-list').innerHTML = retos.map((r, i) => `
+    <div class="reto-row">
+      <textarea data-i="${i}" data-f="text">${esc(r.text)}</textarea>
+      <select data-i="${i}" data-f="cat">${['pizarra', 'general', 'alumnado', 'clase'].map(c => `<option ${r.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
+      <input type="number" data-i="${i}" data-f="pts" value="${r.pts}">
+      <input type="number" min="0" data-i="${i}" data-f="pen" value="${r.pen}">
+      <input type="number" data-i="${i}" data-f="claseOk" value="${r.claseOk || 0}">
+      <input type="number" data-i="${i}" data-f="claseKo" value="${r.claseKo || 0}">
+      <button class="btn-danger btn-mini" onclick="borrarReto(${i})">🗑</button>
+    </div>`).join('');
+}
+
+function leerRetos() {
+  document.querySelectorAll('#retos-list [data-f]').forEach(el => {
+    const r = retos[el.dataset.i], f = el.dataset.f;
+    if (r) r[f] = el.type === 'number' ? (parseInt(el.value, 10) || 0) : el.value.trim();
+  });
+}
+
+function anadirReto() {
+  leerRetos();
+  retos.push({ id: 'u' + Date.now(), cat: 'general', text: 'Nuevo reto: ', pts: 1, pen: 1 });
+  renderRetosEditor();
+  const l = document.getElementById('retos-list');
+  l.lastElementChild.scrollIntoView();
+}
+
+function borrarReto(i) {
+  leerRetos();
+  if (!confirm('¿Borrar este reto?')) return;
+  retos.splice(i, 1);
+  renderRetosEditor();
+}
+
+function restaurarRetos() {
+  if (!confirm('¿Volver a los retos originales? Se pierden tus cambios en los retos.')) return;
+  retos = RETOS.map(r => ({ ...r }));
+  renderRetosEditor();
+}
+
+function guardarRetos() {
+  leerRetos();
+  retos = retos.filter(r => r.text);
+  retos.forEach(r => {
+    r.pen = Math.abs(r.pen);
+    if (!r.claseOk) delete r.claseOk;
+    if (!r.claseKo) delete r.claseKo;
+  });
+  if (!retos.length) { alert('Tiene que haber al menos un reto.'); return; }
+  reindex();
+  state.blockedChallenges = state.blockedChallenges.filter(id => RETO_POR_ID[id]);
+  if (!RETO_POR_ID[state.currentChallengeId]) { state.currentChallengeId = null; state.pending = false; }
+  guardarAjustes();
+  saveState();
+  closeModal('retos-modal');
+}
+
+// ---------- Exportar a Excel (CSV) ----------
+function exportarCSV(tipo) {
+  const q = v => { v = String(v == null ? '' : v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const filas = [];
+  if (tipo === 'resumen') {
+    filas.push(['Alumno', 'Puntos', 'Positivos', 'Negativos', 'Usos protocolo', 'Ausente']);
+    state.students.forEach(s => filas.push([s.name, s.score,
+      s.history.reduce((t, h) => t + (h.points > 0 ? h.points : 0), 0),
+      s.history.reduce((t, h) => t + (h.points < 0 ? -h.points : 0), 0),
+      s.antiShameUses, s.absent ? 'Sí' : 'No']));
+  } else {
+    filas.push(['Alumno', 'Fecha', 'Tipo', 'Puntos', 'Reto']);
+    state.students.forEach(s => s.history.slice().reverse().forEach(h => filas.push([s.name, h.date, h.type, h.points, h.challenge])));
+  }
+  const csv = '\ufeff' + filas.map(f => f.map(q).join(';')).join('\r\n');
+  const g = grupos.find(x => x.id === grupoId);
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  link.download = `${(g ? g.nombre : 'grupo').replace(/\s+/g, '_')}_${tipo}_${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
 
 window.onload = initApp;
